@@ -164,27 +164,28 @@ struct dtPoly
 	/// Packed data representing neighbor polygons references and flags for each edge.
 	unsigned short neis[DT_VERTS_PER_POLYGON];
 
-	/// The user defined polygon flags.
-	unsigned short flags;
-
 	/// The number of vertices in the polygon.
-	unsigned char vertCount;
-
-	/// The bit packed area id and polygon type.
-	/// @note Use the structure's set and get methods to acess this value.
-	unsigned char areaAndtype;
+	int vertCount;
+	
+	/// The user defined polygon flags.
+	short flags;
+	
+	char type : 6;
+	char area : 2;
 
 	/// Sets the user defined area id. [Limit: < #DT_MAX_AREAS]
-	inline void setArea(unsigned char a) { areaAndtype = (areaAndtype & 0xc0) | (a & 0x3f); }
+	inline void setArea(unsigned char a) { area = a; }
 
 	/// Sets the polygon type. (See: #dtPolyTypes.)
-	inline void setType(unsigned char t) { areaAndtype = (areaAndtype & 0x3f) | (t << 6); }
+	inline void setType(unsigned char t) { type = t; }
 
 	/// Gets the user defined area id.
-	inline unsigned char getArea() const { return areaAndtype & 0x3f; }
+	inline unsigned char getArea() const { return type; }
 
 	/// Gets the polygon type. (See: #dtPolyTypes)
-	inline unsigned char getType() const { return areaAndtype >> 6; }
+	inline unsigned char getType() const { return area; }
+	
+	char unk;
 };
 
 /// Defines the location of detail sub-mesh data within a dtMeshTile.
@@ -194,6 +195,8 @@ struct dtPolyDetail
 	unsigned int triBase;			///< The offset of the triangles in the dtMeshTile::detailTris array.
 	unsigned char vertCount;		///< The number of vertices in the sub-mesh.
 	unsigned char triCount;			///< The number of triangles in the sub-mesh.
+
+	short unk;
 };
 
 /// Defines a link between polygons.
