@@ -111,15 +111,16 @@ void Sample_SoloMesh::handleSettings()
 			return;
 		}
 
-		fseek(fp, 0, SEEK_END);
-		size_t size = ftell(fp) - 8;
-		fseek(fp, 8, SEEK_SET);
+		int version;
+		fread(&version, sizeof(int), 1, fp);
+		int length;
+		fread(&length, sizeof(int), 1, fp);
 
-		unsigned char* buffer = (unsigned char*)malloc(size);
-		fread(buffer, 1, size, fp);
+		unsigned char* buffer = (unsigned char*)malloc(length);
+		fread(buffer, 1, length, fp);
 		fclose(fp);
 
-		dtStatus status = m_navMesh->init(buffer, (const int)size, DT_TILE_FREE_DATA);
+		dtStatus status = m_navMesh->init(buffer, length, DT_TILE_FREE_DATA);
 		if (dtStatusFailed(status))
 		{
 			dtFree(buffer);
