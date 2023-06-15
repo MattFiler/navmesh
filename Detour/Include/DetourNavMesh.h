@@ -166,12 +166,14 @@ struct dtPoly
 
 	/// The number of vertices in the polygon.
 	int vertCount;
-	
+
 	/// The user defined polygon flags.
-	short flags;
-	
-	char type : 6;
-	char area : 2;
+	unsigned short flags;
+
+	/// The bit packed area id and polygon type.
+	/// @note Use the structure's set and get methods to acess this value.
+	unsigned char area : 2;
+	unsigned char type : 6;
 
 	/// Sets the user defined area id. [Limit: < #DT_MAX_AREAS]
 	inline void setArea(unsigned char a) { area = a; }
@@ -184,8 +186,8 @@ struct dtPoly
 
 	/// Gets the polygon type. (See: #dtPolyTypes)
 	inline unsigned char getType() const { return area; }
-	
-	char unk;
+
+	unsigned char unk;
 };
 
 /// Defines the location of detail sub-mesh data within a dtMeshTile.

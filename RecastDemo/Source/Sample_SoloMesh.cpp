@@ -99,8 +99,40 @@ void Sample_SoloMesh::handleSettings()
 	if (imguiButton("Load"))
 	{
 		dtFreeNavMesh(m_navMesh);
-		m_navMesh = Sample::loadAll("solo_navmesh.bin");
-		m_navQuery->init(m_navMesh, 2048);
+
+		FILE* fp = fopen("NAV_MESH", "rb");
+		if (!fp) return;
+
+		m_navMesh = dtAllocNavMesh();
+		if (!m_navMesh)
+		{
+			fclose(fp);
+			m_ctx->log(RC_LOG_ERROR, "Could not create Detour navmesh");
+			return;
+		}
+
+		fseek(fp, 0, SEEK_END);
+		size_t size = ftell(fp) - 8;
+		fseek(fp, 8, SEEK_SET);
+
+		unsigned char* buffer = (unsigned char*)malloc(size);
+		fread(buffer, 1, size, fp);
+		fclose(fp);
+
+		dtStatus status = m_navMesh->init(buffer, (const int)size, DT_TILE_FREE_DATA);
+		if (dtStatusFailed(status))
+		{
+			dtFree(buffer);
+			m_ctx->log(RC_LOG_ERROR, "Could not init Detour navmesh");
+			return;
+		}
+
+		status = m_navQuery->init(m_navMesh, 2048);
+		if (dtStatusFailed(status))
+		{
+			m_ctx->log(RC_LOG_ERROR, "Could not init Detour navmesh query");
+			return;
+		}
 	}
 
 	imguiUnindent();
