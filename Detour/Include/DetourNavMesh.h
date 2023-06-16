@@ -172,8 +172,8 @@ struct dtPoly
 
 	/// The bit packed area id and polygon type.
 	/// @note Use the structure's set and get methods to acess this value.
-	unsigned char area : 2;
-	unsigned char type : 6;
+	unsigned char area;
+	unsigned char type;
 
 	/// Sets the user defined area id. [Limit: < #DT_MAX_AREAS]
 	inline void setArea(unsigned char a) { area = a; }
@@ -186,8 +186,6 @@ struct dtPoly
 
 	/// Gets the polygon type. (See: #dtPolyTypes)
 	inline unsigned char getType() const { return area; }
-
-	unsigned char unk;
 };
 
 /// Defines the location of detail sub-mesh data within a dtMeshTile.
@@ -247,6 +245,13 @@ struct dtOffMeshConnection
 
 	/// The id of the offmesh connection. (User assigned when the navigation mesh is built.)
 	unsigned int userId;
+
+	int unk1;
+	float unk2;
+	float unk3;
+	float unk4;
+	int unk5;
+	int unk6;
 };
 
 /// Provides high level information related to a dtMeshTile object.
