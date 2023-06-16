@@ -51,6 +51,8 @@ static void drawPolyBoundaries(duDebugDraw* dd, const dtMeshTile* tile,
 		
 		if (p->getType() == DT_POLYTYPE_OFFMESH_CONNECTION) continue;
 		
+		if (i >= tile->header->detailMeshCount) continue;
+
 		const dtPolyDetail* pd = &tile->detailMeshes[i];
 		
 		for (int j = 0, nj = (int)p->vertCount; j < nj; ++j)
@@ -133,7 +135,9 @@ static void drawMeshTile(duDebugDraw* dd, const dtNavMesh& mesh, const dtNavMesh
 		const dtPoly* p = &tile->polys[i];
 		if (p->getType() == DT_POLYTYPE_OFFMESH_CONNECTION)	// Skip off-mesh links.
 			continue;
-			
+
+		if (i >= tile->header->detailMeshCount) continue;
+
 		const dtPolyDetail* pd = &tile->detailMeshes[i];
 
 		unsigned int col;
