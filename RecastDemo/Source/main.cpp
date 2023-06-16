@@ -51,24 +51,7 @@
 using std::string;
 using std::vector;
 
-struct SampleItem
-{
-	Sample* (*create)();
-	const string name;
-};
-Sample* createSolo() { return new Sample_SoloMesh(); }
-Sample* createTile() { return new Sample_TileMesh(); }
-Sample* createTempObstacle() { return new Sample_TempObstacles(); }
-Sample* createDebug() { return new Sample_Debug(); }
-static SampleItem g_samples[] =
-{
-	{ createSolo, "Solo Mesh" },
-	{ createTile, "Tile Mesh" },
-	{ createTempObstacle, "Temp Obstacles" },
-};
-static const int g_nsamples = sizeof(g_samples) / sizeof(SampleItem);
-
-int main(int /*argc*/, char** /*argv*/)
+int main(int argc, char** argv)
 {
 	// Init SDL
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
@@ -169,18 +152,17 @@ int main(int /*argc*/, char** /*argv*/)
 	
 	vector<string> files;
 	const string meshesFolder = "Meshes";
-	string meshName = "Choose Mesh...";
 	
 	float markerPosition[3] = {0, 0, 0};
 	bool markerPositionSet = false;
 	
-	InputGeom* geom = 0;
-	Sample* sample = 0;
+	BuildContext ctx;
+	Sample* sample = new Sample_SoloMesh();
+	sample->setContext(&ctx);
 
 	const string testCasesFolder = "TestCases";
 	TestCase* test = 0;
 
-	BuildContext ctx;
 	
 	// Fog.
 	float fogColor[4] = { 0.32f, 0.31f, 0.30f, 1.0f };
@@ -192,6 +174,68 @@ int main(int /*argc*/, char** /*argv*/)
 	
 	glEnable(GL_CULL_FACE);
 	glDepthFunc(GL_LEQUAL);
+
+
+	InputGeom* geom = new InputGeom;
+	string path = meshesFolder + "/TORRENS_DISPLAY.obj";
+	if (!geom->load(&ctx, path))
+	{
+		delete geom;
+		geom = 0;
+
+		// Destroy the sample if it already had geometry loaded, as we've just deleted it!
+		if (sample && sample->getInputGeom())
+		{
+			delete sample;
+			sample = 0;
+		}
+
+		showLog = true;
+		logScroll = 0;
+		ctx.dumpLog("Geom load log:");
+	}
+	if (sample && geom)
+	{
+		sample->handleMeshChanged(geom);
+	}
+
+	if (geom || sample)
+	{
+		const float* bmin = 0;
+		const float* bmax = 0;
+		if (geom)
+		{
+			bmin = geom->getNavMeshBoundsMin();
+			bmax = geom->getNavMeshBoundsMax();
+		}
+		// Reset camera and fog to match the mesh bounds.
+		if (bmin && bmax)
+		{
+			camr = sqrtf(rcSqr(bmax[0] - bmin[0]) +
+				rcSqr(bmax[1] - bmin[1]) +
+				rcSqr(bmax[2] - bmin[2])) / 2;
+			cameraPos[0] = (bmax[0] + bmin[0]) / 2 + camr;
+			cameraPos[1] = (bmax[1] + bmin[1]) / 2 + camr;
+			cameraPos[2] = (bmax[2] + bmin[2]) / 2 + camr;
+			camr *= 3;
+		}
+		cameraEulers[0] = 45;
+		cameraEulers[1] = -45;
+		glFogf(GL_FOG_START, camr * 0.1f);
+		glFogf(GL_FOG_END, camr * 1.25f);
+	}
+
+	ctx.resetLog();
+	if (!sample->handleBuild())
+	{
+		showLog = true;
+		logScroll = 0;
+	}
+	ctx.dumpLog("Build log:");
+
+	// Clear test.
+	delete test;
+	test = 0;
 	
 	bool done = false;
 	while(!done)
@@ -528,40 +572,9 @@ int main(int /*argc*/, char** /*argv*/)
 				showLog = !showLog;
 			if (imguiCheck("Show Tools", showTools))
 				showTools = !showTools;
-
-			imguiSeparator();
-			imguiLabel("Sample");
-			if (imguiButton(sampleName.c_str()))
-			{
-				if (showSample)
-				{
-					showSample = false;
-				}
-				else
-				{
-					showSample = true;
-					showLevels = false;
-					showTestCases = false;
-				}
-			}
 			
 			imguiSeparator();
 			imguiLabel("Input Mesh");
-			if (imguiButton(meshName.c_str()))
-			{
-				if (showLevels)
-				{
-					showLevels = false;
-				}
-				else
-				{
-					showSample = false;
-					showTestCases = false;
-					showLevels = true;
-					scanDirectory(meshesFolder, ".obj", files);
-					scanDirectoryAppend(meshesFolder, ".gset", files);
-				}
-			}
 			if (geom)
 			{
 				char text[64];
@@ -586,7 +599,7 @@ int main(int /*argc*/, char** /*argv*/)
 						showLog = true;
 						logScroll = 0;
 					}
-					ctx.dumpLog("Build log %s:", meshName.c_str());
+					ctx.dumpLog("Build log:");
 					
 					// Clear test.
 					delete test;
@@ -602,265 +615,6 @@ int main(int /*argc*/, char** /*argv*/)
 				sample->handleDebugMode();
 			}
 
-			imguiEndScrollArea();
-		}
-		
-		// Sample selection dialog.
-		if (showSample)
-		{
-			static int levelScroll = 0;
-			if (imguiBeginScrollArea("Choose Sample", width-10-250-10-200, height-10-250, 200, 250, &levelScroll))
-				mouseOverMenu = true;
-
-			Sample* newSample = 0;
-			for (int i = 0; i < g_nsamples; ++i)
-			{
-				if (imguiItem(g_samples[i].name.c_str()))
-				{
-					newSample = g_samples[i].create();
-					if (newSample)
-						sampleName = g_samples[i].name;
-				}
-			}
-			if (newSample)
-			{
-				delete sample;
-				sample = newSample;
-				sample->setContext(&ctx);
-				if (geom)
-				{
-					sample->handleMeshChanged(geom);
-				}
-				showSample = false;
-			}
-
-			if (geom || sample)
-			{
-				const float* bmin = 0;
-				const float* bmax = 0;
-				if (geom)
-				{
-					bmin = geom->getNavMeshBoundsMin();
-					bmax = geom->getNavMeshBoundsMax();
-				}
-				// Reset camera and fog to match the mesh bounds.
-				if (bmin && bmax)
-				{
-					camr = sqrtf(rcSqr(bmax[0]-bmin[0]) +
-								 rcSqr(bmax[1]-bmin[1]) +
-								 rcSqr(bmax[2]-bmin[2])) / 2;
-					cameraPos[0] = (bmax[0] + bmin[0]) / 2 + camr;
-					cameraPos[1] = (bmax[1] + bmin[1]) / 2 + camr;
-					cameraPos[2] = (bmax[2] + bmin[2]) / 2 + camr;
-					camr *= 3;
-				}
-				cameraEulers[0] = 45;
-				cameraEulers[1] = -45;
-				glFogf(GL_FOG_START, camr*0.1f);
-				glFogf(GL_FOG_END, camr*1.25f);
-			}
-			
-			imguiEndScrollArea();
-		}
-		
-		// Level selection dialog.
-		if (showLevels)
-		{
-			static int levelScroll = 0;
-			if (imguiBeginScrollArea("Choose Level", width - 10 - 250 - 10 - 200, height - 10 - 450, 200, 450, &levelScroll))
-				mouseOverMenu = true;
-			
-			vector<string>::const_iterator fileIter = files.begin();
-			vector<string>::const_iterator filesEnd = files.end();
-			vector<string>::const_iterator levelToLoad = filesEnd;
-			for (; fileIter != filesEnd; ++fileIter)
-			{
-				if (imguiItem(fileIter->c_str()))
-				{
-					levelToLoad = fileIter;
-				}
-			}
-			
-			if (levelToLoad != filesEnd)
-			{
-				meshName = *levelToLoad;
-				showLevels = false;
-				
-				delete geom;
-				geom = 0;
-				
-				string path = meshesFolder + "/" + meshName;
-				
-				geom = new InputGeom;
-				if (!geom->load(&ctx, path))
-				{
-					delete geom;
-					geom = 0;
-
-					// Destroy the sample if it already had geometry loaded, as we've just deleted it!
-					if (sample && sample->getInputGeom())
-					{
-						delete sample;
-						sample = 0;
-					}
-					
-					showLog = true;
-					logScroll = 0;
-					ctx.dumpLog("Geom load log %s:", meshName.c_str());
-				}
-				if (sample && geom)
-				{
-					sample->handleMeshChanged(geom);
-				}
-
-				if (geom || sample)
-				{
-					const float* bmin = 0;
-					const float* bmax = 0;
-					if (geom)
-					{
-						bmin = geom->getNavMeshBoundsMin();
-						bmax = geom->getNavMeshBoundsMax();
-					}
-					// Reset camera and fog to match the mesh bounds.
-					if (bmin && bmax)
-					{
-						camr = sqrtf(rcSqr(bmax[0]-bmin[0]) +
-									 rcSqr(bmax[1]-bmin[1]) +
-									 rcSqr(bmax[2]-bmin[2])) / 2;
-						cameraPos[0] = (bmax[0] + bmin[0]) / 2 + camr;
-						cameraPos[1] = (bmax[1] + bmin[1]) / 2 + camr;
-						cameraPos[2] = (bmax[2] + bmin[2]) / 2 + camr;
-						camr *= 3;
-					}
-					cameraEulers[0] = 45;
-					cameraEulers[1] = -45;
-					glFogf(GL_FOG_START, camr * 0.1f);
-					glFogf(GL_FOG_END, camr * 1.25f);
-				}
-			}
-			
-			imguiEndScrollArea();
-			
-		}
-		
-		// Test cases
-		if (showTestCases)
-		{
-			static int testScroll = 0;
-			if (imguiBeginScrollArea("Choose Test To Run", width-10-250-10-200, height-10-450, 200, 450, &testScroll))
-				mouseOverMenu = true;
-
-			vector<string>::const_iterator fileIter = files.begin();
-			vector<string>::const_iterator filesEnd = files.end();
-			vector<string>::const_iterator testToLoad = filesEnd;
-			for (; fileIter != filesEnd; ++fileIter)
-			{
-				if (imguiItem(fileIter->c_str()))
-				{
-					testToLoad = fileIter;
-				}
-			}
-			
-			if (testToLoad != filesEnd)
-			{
-				string path = testCasesFolder + "/" + *testToLoad;
-				test = new TestCase;
-				if (test)
-				{
-					// Load the test.
-					if (!test->load(path))
-					{
-						delete test;
-						test = 0;
-					}
-
-					// Create sample
-					Sample* newSample = 0;
-					for (int i = 0; i < g_nsamples; ++i)
-					{
-						if (g_samples[i].name == test->getSampleName())
-						{
-							newSample = g_samples[i].create();
-							if (newSample)
-								sampleName = g_samples[i].name;
-						}
-					}
-
-					delete sample;
-					sample = newSample;
-
-					if (sample)
-					{
-						sample->setContext(&ctx);
-						showSample = false;
-					}
-
-					// Load geom.
-					meshName = test->getGeomFileName();
-					
-					
-					path = meshesFolder + "/" + meshName;
-					
-					delete geom;
-					geom = new InputGeom;
-					if (!geom || !geom->load(&ctx, path))
-					{
-						delete geom;
-						geom = 0;
-						delete sample;
-						sample = 0;
-						showLog = true;
-						logScroll = 0;
-						ctx.dumpLog("Geom load log %s:", meshName.c_str());
-					}
-					if (sample && geom)
-					{
-						sample->handleMeshChanged(geom);
-					}
-
-					// This will ensure that tile & poly bits are updated in tiled sample.
-					if (sample)
-						sample->handleSettings();
-
-					ctx.resetLog();
-					if (sample && !sample->handleBuild())
-					{
-						ctx.dumpLog("Build log %s:", meshName.c_str());
-					}
-					
-					if (geom || sample)
-					{
-						const float* bmin = 0;
-						const float* bmax = 0;
-						if (geom)
-						{
-							bmin = geom->getNavMeshBoundsMin();
-							bmax = geom->getNavMeshBoundsMax();
-						}
-						// Reset camera and fog to match the mesh bounds.
-						if (bmin && bmax)
-						{
-							camr = sqrtf(rcSqr(bmax[0] - bmin[0]) +
-										 rcSqr(bmax[1] - bmin[1]) +
-										 rcSqr(bmax[2] - bmin[2])) / 2;
-							cameraPos[0] = (bmax[0] + bmin[0]) / 2 + camr;
-							cameraPos[1] = (bmax[1] + bmin[1]) / 2 + camr;
-							cameraPos[2] = (bmax[2] + bmin[2]) / 2 + camr;
-							camr *= 3;
-						}
-						cameraEulers[0] = 45;
-						cameraEulers[1] = -45;
-						glFogf(GL_FOG_START, camr * 0.2f);
-						glFogf(GL_FOG_END, camr * 1.25f);
-					}
-					
-					// Do the tests.
-					if (sample)
-						test->doTests(sample->getNavMesh(), sample->getNavMeshQuery());
-				}
-			}				
-				
 			imguiEndScrollArea();
 		}
 
