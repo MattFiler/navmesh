@@ -249,12 +249,12 @@ struct dtOffMeshConnection
 
 	//Below are additions by CA
 
-	// "userid" ?
-	int unk1;
-	float unk2;
+	int unk1; //Always 0
 
 	// entity handle to PathfindingWaitNode
+	float unk2;
 	float unk3;
+
 	float unk4;
 
 	int unk5; //Always 0
