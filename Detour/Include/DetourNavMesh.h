@@ -196,7 +196,7 @@ struct dtPolyDetail
 	unsigned char vertCount;		///< The number of vertices in the sub-mesh.
 	unsigned char triCount;			///< The number of triangles in the sub-mesh.
 
-	short unk;
+	short unk; //Always 0
 };
 
 /// Defines a link between polygons.
@@ -246,12 +246,19 @@ struct dtOffMeshConnection
 	/// The id of the offmesh connection. (User assigned when the navigation mesh is built.)
 	unsigned int userId;
 
+
+	//Below are additions by CA
+
+	// "userid" ?
 	int unk1;
 	float unk2;
+
+	// entity handle to PathfindingWaitNode
 	float unk3;
 	float unk4;
-	int unk5;
-	int unk6;
+
+	int unk5; //Always 0
+	int unk6; //Always 3
 };
 
 /// Provides high level information related to a dtMeshTile object.
